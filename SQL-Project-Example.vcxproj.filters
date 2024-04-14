@@ -15,24 +15,27 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\sql_arena\sql_arena\README.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\main.cpp">
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="source\BandManager.h">
+    <ClInclude Include="Customer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\DBConn.h">
+    <ClInclude Include="DBConn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\SQLServerConn.h">
+    <ClInclude Include="SQLServerConn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\Band.h">
+    <ClInclude Include="CustomerManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Supplier.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SupplierManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
