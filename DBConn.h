@@ -47,14 +47,37 @@ public:
         SQLSMALLINT recordNumber = 1;
         SQLWCHAR sqlState[6];
         SQLINTEGER nativeError;
-        SQLWCHAR messageText[1024]; // Increased buffer size
+        SQLWCHAR* messageText = nullptr; // Pointer to error message buffer
         SQLSMALLINT textLength;
         SQLRETURN diagRecRet;
-        while (SQL_SUCCESS == (diagRecRet = SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, recordNumber++, sqlState, &nativeError, messageText, sizeof(messageText), &textLength))) {
+
+        // Loop to retrieve and process error messages
+        while (SQL_SUCCESS == (diagRecRet = SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, recordNumber++, sqlState, &nativeError, NULL, 0, &textLength))) {
+            // Allocate memory for the error message buffer
+            messageText = new SQLWCHAR[textLength + 1];
+
+            // Retrieve the error message
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, recordNumber - 1, sqlState, &nativeError, messageText, textLength + 1, &textLength);
+
+            // Output the error message
             std::wcerr << "SQL Error " << nativeError << ": " << std::wstring(messageText) << std::endl;
+
+            // Free the memory for the error message buffer
+            delete[] messageText;
+            messageText = nullptr;
+        }
+
+        // Check if an error occurred during the last iteration
+        if (diagRecRet != SQL_NO_DATA) {
+            // Error occurred while fetching error message
+            std::wcerr << "Error occurred while fetching error message" << std::endl;
+            // Free the memory for the error message buffer if not already done
+            if (messageText != nullptr) {
+                delete[] messageText;
+            }
         }
     }
-    
+  
     // Gets the primary key value of the last inserted row
     int getLastInsertedID() {
         // Execute the SQL statement to retrieve the last inserted ID
@@ -63,7 +86,7 @@ public:
         }
 
         // Bind the result set column to a C variable
-        SQLINTEGER lastID;
+        SQLINTEGER lastID = 0;
         SQLRETURN retcode = SQLBindCol(hStmt, 1, SQL_C_SLONG, &lastID, sizeof(SQLINTEGER), NULL);
         if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
             // Handle error
@@ -109,6 +132,7 @@ public:
         }
     }
 
+    // Checks if a database exists with a given name
     bool dbExists(const std::string& dbName) {
         // Prepare the SQL query to check if the database exists
         std::string query = "IF EXISTS(SELECT * FROM master.sys.databases WHERE name='" + dbName + "') BEGIN SELECT 1 END ELSE BEGIN SELECT 0 END;";
@@ -134,6 +158,7 @@ public:
         return count == 1;
     }
 
+    // Checks if a table exists with a given name
     bool tableExists(const std::string& tableName) {
         // Prepare the SQL query to check if the table exists
         std::string query = "IF EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '" + tableName + "') BEGIN SELECT 1 END ELSE BEGIN SELECT 0 END;";
@@ -176,9 +201,35 @@ public:
         return SQLBindCol(hStmt, colNum, targetType, targetValue, bufferLength, indicator);
     }
 
+    // Fetches data for a row
     SQLRETURN fetchRow() {
         return SQLFetch(hStmt);
     }
+
+    // Closes SQL Cursor and releases resources; We'll do these after every fetchRow()
+    SQLRETURN closeCursor() {
+        return SQLFreeStmt(hStmt, SQL_CLOSE);
+    }
+
+    /*
+    - Handles escaping single quotes in an SQL query.
+    
+    */
+    std::string escapeSQL(std::string query) {
+        size_t pos = 0; // Keep track of the index position in the string
+        pos = query.find("'", pos); // try to find first index position of a single quote
+
+        // Iterate while we continue finding index positions from query.find()
+        while ((pos != std::string::npos)) {
+            query.replace(pos, 1, "''"); // replace the single quote we found with two single quotes
+            pos += 2; // Increase index by two to skip over the two single quotes we've just inserted
+            pos = query.find("'", pos); // Try to find index for next single quote
+        }
+        return query;
+    }
+
+    // Create an unescape function
+
 
 
     // Destructor frees the statement handle.

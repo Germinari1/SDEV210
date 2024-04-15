@@ -25,6 +25,7 @@
     <ClInclude Include="Customer.h" />
     <ClInclude Include="CustomerManager.h" />
     <ClInclude Include="DBConn.h" />
+    <ClInclude Include="RetailApp.h" />
     <ClInclude Include="SQLServerConn.h" />
     <ClInclude Include="Supplier.h" />
     <ClInclude Include="SupplierManager.h" />
