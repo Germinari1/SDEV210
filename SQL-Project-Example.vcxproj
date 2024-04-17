@@ -18,6 +18,18 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Customer.h" />
+    <ClInclude Include="CustomerManager.h" />
+    <ClInclude Include="DBConn.h" />
+    <ClInclude Include="RetailApp.h" />
+    <ClInclude Include="SQLServerConn.h" />
+    <ClInclude Include="Supplier.h" />
+    <ClInclude Include="SupplierManager.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -126,18 +138,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <None Include="..\sql_arena\sql_arena\README.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="source\Band.h" />
-    <ClInclude Include="source\BandManager.h" />
-    <ClInclude Include="source\DBConn.h" />
-    <ClInclude Include="source\SQLServerConn.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
