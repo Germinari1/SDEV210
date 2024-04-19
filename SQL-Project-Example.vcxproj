@@ -25,10 +25,16 @@
     <ClInclude Include="Customer.h" />
     <ClInclude Include="CustomerManager.h" />
     <ClInclude Include="DBConn.h" />
+    <ClInclude Include="getValidNumericInput.h" />
+    <ClInclude Include="Product.h" />
+    <ClInclude Include="ProductManager.h" />
     <ClInclude Include="RetailApp.h" />
+    <ClInclude Include="ShoppingCart.h" />
     <ClInclude Include="SQLServerConn.h" />
     <ClInclude Include="Supplier.h" />
     <ClInclude Include="SupplierManager.h" />
+    <ClInclude Include="SupplierName.h" />
+    <ClInclude Include="SupplierNameManager.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

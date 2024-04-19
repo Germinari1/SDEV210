@@ -6,18 +6,18 @@
 #include "CustomerManager.h"
 #include "SupplierManager.h"
 #include "SupplierNameManager.h"
-
+#include "ProductManager.h"
 #include "RetailApp.h"
 
 int main() {
     try {
-
+        // Table names
         std::string connectionString = "DRIVER={SQL Server};SERVER=KN\\SQLEXPRESS;Trusted_Connection=yes;";
         std::string dbName = "sample_store";
         std::string customerTableName = "Customers";
         std::string supplierTableName = "Suppliers";
         std::string supplierNameTableName = "Supplier_Names";
-
+        std::string productTableName = "Products";
 
         // Connect to SQL Server instance on 
         SQLServerConn connector;
@@ -55,9 +55,14 @@ int main() {
             supplierNameManager.initTable();
         }
 
+        ProductManager productManager(dbConn, productTableName, supplierTableName);
+        if (!dbConn.tableExists(productTableName)) {
+            productManager.initTable();
+        }
+
         
 
-        RetailApp myStore(customerManager, supplierManager, supplierNameManager);
+        RetailApp myStore(customerManager, supplierManager, productManager);
         int choice;
 
         do {
@@ -65,7 +70,8 @@ int main() {
             std::cout << "Main Menu: " << std::endl;
             std::cout << "1. Customers" << std::endl;
             std::cout << "2. Suppliers" << std::endl;
-            std::cout << "3. Quit" << std::endl;
+            std::cout << "3. Products" << std::endl;
+            std::cout << "4. Quit" << std::endl;
             std::cout << "Please enter a number to continue: ";
             std::cin >> choice;
 
@@ -84,13 +90,16 @@ int main() {
                 myStore.handleSupplierMenu();
                 break;
             case 3:
+                myStore.handleProductMenu();
+                break;
+            case 4:
                 std::cout << "Exiting Program!" << std::endl;
                 break;
             default:
-                std::cout << "Invalid choice. Please enter a number between 1 and 3." << std::endl;
+                std::cout << "Invalid choice. Please enter a number between 1 and 4." << std::endl;
             }
 
-        } while (choice != 3);
+        } while (choice != 4);
         
 
         // Disconnect from SQL Server

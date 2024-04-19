@@ -51,7 +51,7 @@ public:
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const Product& product) {
-		os << "<Product ID(" << product.product_id << "), Supplier ID(" << product.supplier_id << "), name(" << product.p_name << "), Price(" << product.price << "), Qty(" << product.qty << ")/>";
+		os << "<Product ID(" << product.product_id << "), supplier_id(" << product.supplier_id << "), name(" << product.p_name << "), Price(" << product.price << "), Qty in stock(" << product.qty << ")/>";
 		return os;
 	}
 

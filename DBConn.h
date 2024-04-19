@@ -25,6 +25,16 @@ public:
         this over SQLExecDirectA as it supports more characters. As a result, we'd convert a
         regular string into a 'wide string'. Then c_str() is able to turn that into a 
         SQLWCHAR* for us.
+
+    - Return false when SQL_ERROR so when something failed. We do this over !SQL_SUCCESS because this 
+      allows us to return true, even if no rows were affected. So the query still ran, it just didn't 
+      affect anything. This helps in the edge case where we're trying to delete a supplier that has 
+      no products. We're able to delete products by supplier_id without having to worry about throwing 
+      an error due to executeSQL returning false becasue it affected no rows.
+
+    - Memory access violation happened at fetchRow when we were creating and then updating the same 
+    customer. Something was going wrong with fetchRow and how it detected if a customer was there. I think i
+    'fixed' it by minimizing when I pass by reference because during my last 3 tests nothing bad happened. But I still don't know the solution to that mystery and it's actually frustrating.
     */
     bool executeSQL(const std::string& sqlQuery) {
         // Convert string into wstring
@@ -34,12 +44,12 @@ public:
         // Execute SQL Statement, and then return the success flag
         SQLRETURN retcode = SQLExecDirectW(hStmt, (SQLWCHAR*)sqlQueryW.c_str(), SQL_NTS);
 
-        // If we failed, log the sql error
-        if (!SQL_SUCCEEDED(retcode)) {
+        if (SQL_ERROR == retcode) {
             logSQLError();
+            return false;
         }
 
-        return SQL_SUCCEEDED(retcode);
+        return true;
     };
 
     // Logs out SQL errors to console
@@ -184,6 +194,38 @@ public:
         return count == 1;
     }
 
+
+    /*
+    - Returns true if a row exists in a given table named <tableName> with 
+       corresponding column
+    
+    NOTE: If value has single quotes, ensure that they are escaped using escapeSQL before 
+    passing it into isValidRow.
+    */
+    template<typename T>
+    bool isValidRow(std::string tableName, std::string colName, T value) {
+        bool isValid = true;
+
+        // Create the query string
+        std::string query = "SELECT " + colName + " FROM " + tableName + " WHERE " + colName + " = " + std::to_string(value);
+
+        // Execute the query
+        if (!executeSQL(query)) {
+            throw std::runtime_error("Failed to check IF " + colName + "(" + std::to_string(value) + ") was valid!");
+        }
+
+        // Try to fetch the row data, if row wasn't found, set isValid to false to indicate no
+        SQLRETURN retcode = fetchRow();
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            isValid = false;
+        }
+
+        // Close cursor since we fetched a row using fetchRow. Then return boolean.
+        closeCursor();
+        return isValid;
+    }
+
+
     /*
     - Used to bind variables to column values when we fetch our data from our database.
 
@@ -213,7 +255,6 @@ public:
 
     /*
     - Handles escaping single quotes in an SQL query.
-    
     */
     std::string escapeSQL(std::string query) {
         size_t pos = 0; // Keep track of the index position in the string
@@ -227,10 +268,6 @@ public:
         }
         return query;
     }
-
-    // Create an unescape function
-
-
 
     // Destructor frees the statement handle.
     ~DBConn() {

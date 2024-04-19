@@ -56,6 +56,13 @@ public:
 		}
 	}
 
+	// Ensure that the supplier_id links to an actual supplier if not, then we throw an error 
+	bool isValidSupplierID(int supplier_id) {
+		bool isValidID = dbConn.isValidRow(tableName, "supplier_id", supplier_id);
+		return isValidID;
+	}
+
+
 	// Checks that supplier name is within length constraints
 	void validateSupplierName(std::string& s_name) {
 		if (s_name.length() > MAX_S_NAME_LENGTH) {
@@ -138,7 +145,7 @@ public:
 				throw std::runtime_error("Failed to fetch all suppliers from the database!");
 			}
 
-			// Null terminate the strings
+			// Null terminate the strings; needed since we convert the datatypes
 			description[MAX_DESCRIPTION_LENGTH] = '\0';
 			email[MAX_EMAIL_LENGTH] = '\0';
 			address[MAX_ADDRESS_LENGTH] = '\0';
@@ -157,7 +164,6 @@ public:
 
 		// Close cursor
 		dbConn.closeCursor();
-		
 
 		// Return the 'suppliers' vector
 		return suppliers;
@@ -212,11 +218,11 @@ public:
 		
 
 		// Add null terminating character to the end of the buffers, so they can be turned into strings
-		description[sizeof(description) - 1] = '\0';
-		email[sizeof(email) - 1] = '\0';
-		address[sizeof(address) - 1] = '\0';
-		s_name[sizeof(s_name) - 1] = '\0';
-
+		description[MAX_DESCRIPTION_LENGTH] = '\0';
+		email[MAX_EMAIL_LENGTH] = '\0';
+		address[MAX_ADDRESS_LENGTH] = '\0';
+		s_name[MAX_S_NAME_LENGTH] = '\0';
+		
 		// Convert SQLCHAR to strings and SQLINTEGER to int
 		std::string descriptionStr(reinterpret_cast<char*>(description));
 		std::string emailStr(reinterpret_cast<char*>(email));
@@ -293,7 +299,8 @@ public:
 
 	// Handles updating a supplier's name
 	void updateName(int supplier_id, std::string& s_name) {
-		// Ensure supplier name is within syntax constraints
+
+		// Validate name length
 		validateSupplierName(s_name);
 
 		// Escape the supplier name
@@ -309,9 +316,8 @@ public:
 	// Handles updating a supplier's description
 	void updateDescription(int supplier_id, std::string& description) {
 
-		// Ensure description is within syntax constraints
+		// Validate description length
 		validateDescription(description);
-
 		// Escape the description; don't need to create 'escaped_description' since we aren't directly creating a supplier object to return
 		description = dbConn.escapeSQL(description);
 
@@ -324,7 +330,6 @@ public:
 
 	// Handles updating a supplier's email
 	void updateEmail(int supplier_id, std::string& email) {
-		// Validate email
 		validateEmail(email);
 
 		// Escape the email
@@ -339,7 +344,6 @@ public:
 
 	// Handles updating a supplier's address
 	void updateAddress(int supplier_id, std::string& address) {
-		// Validate the address of the supplier
 		validateAddress(address);
 
 		// Escape the address

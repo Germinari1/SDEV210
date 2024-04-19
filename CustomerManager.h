@@ -47,19 +47,19 @@ public:
 	- Ensures the string attributes that were inputted meet max length constraints.
 	- If they aren't then an error is thrown
 	*/
-	void validateFirstName(std::string& fname) {
+	void validateFirstName(std::string fname) {
 		if (fname.length() > MAX_FNAME_LENGTH) {
 			throw std::runtime_error("Customer fname exceeds maximum length of " + std::to_string(MAX_FNAME_LENGTH) + " characters!");
 		}
 	}
 
-	void validateLastName(std::string& lname) {
+	void validateLastName(std::string lname) {
 		if (lname.length() > MAX_LNAME_LENGTH) {
 			throw std::runtime_error("Customer lname exceeds maximum length of " + std::to_string(MAX_LNAME_LENGTH) + " characters!");
 		}
 	}
 
-	void validateEmail(std::string& email) {
+	void validateEmail(std::string email) {
 		if (email.length() > MAX_EMAIL_LENGTH) {
 			throw std::runtime_error("Customer email exceeds maximum length of " + std::to_string(MAX_EMAIL_LENGTH) + " characters!");
 		}
@@ -98,6 +98,7 @@ public:
 				break;
 			}
 			else if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+				dbConn.closeCursor(); // Close the cursor before the error was thrown.
 				throw std::runtime_error("Failed to fetch all customers from the database!");
 			}
 
@@ -155,7 +156,12 @@ public:
 		retcode = dbConn.fetchRow();
 		if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
 			dbConn.closeCursor(); // Close the cursor
-			throw std::runtime_error("Customer with ID '" + std::to_string(customer_id) + "' wasn't found!");
+			if (retcode == SQL_NO_DATA) {
+				throw std::runtime_error("Customer with ID '" + std::to_string(customer_id) + "' wasn't found!");
+			}
+			else {
+				throw std::runtime_error("Failed to fetch customer with ID '" + std::to_string(customer_id) + "'!");
+			}
 		}
 	
 		// Close the cursor
@@ -190,8 +196,8 @@ public:
 		return customer;
 	}
 
-	// Creates a customer and returns that customer
-	Customer createCustomer(std::string& fname, std::string& lname, std::string& email, int points) {
+	// Creates a customer and returns that customer 
+	Customer createCustomer(std::string fname, std::string lname, std::string email, int points) {
 
 		// Ensure that the input meets input length constraints before checking with the database.
 		validateFirstName(fname);
@@ -216,7 +222,7 @@ public:
 	}
 
 	// Updates fname column of row with customer_id
-	void updateFirstName(int customer_id, std::string& fname) {
+	void updateFirstName(int customer_id, std::string fname) {
 		
 		// Validate length of first name
 		validateFirstName(fname);
@@ -232,7 +238,7 @@ public:
 	}
 
 	// Updates lname column of row with customer_id
-	void updateLastName(int customer_id, std::string& lname) {
+	void updateLastName(int customer_id, std::string lname) {
 
 		// Validate length of last name
 		validateLastName(lname);
@@ -248,7 +254,7 @@ public:
 	}
 
 	// Updates email column of row with customer_id
-	void updateEmail(int customer_id, std::string& email) {
+	void updateEmail(int customer_id, std::string email) {
 		// Validate length of email
 		validateEmail(email);
 
