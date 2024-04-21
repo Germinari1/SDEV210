@@ -25,7 +25,24 @@ private:
 	static const int MAX_LNAME_LENGTH = 50;
 	static const int MAX_EMAIL_LENGTH = 50;
 	
+	// Helper function that takes SQL row data and creates customer object from it.
+	Customer createCustomerFromRow(SQLINTEGER customer_id, SQLCHAR* fname, SQLCHAR* lname, SQLCHAR* email, SQLINTEGER points) {
+		// Null terminate the strings
+		fname[MAX_FNAME_LENGTH] = '\0';
+		lname[MAX_LNAME_LENGTH] = '\0';
+		email[MAX_EMAIL_LENGTH] = '\0';
 
+		// Convert SQLCHAR to strings and SQLINTEGER to int
+		std::string fStr(reinterpret_cast<char*>(fname));
+		std::string lStr(reinterpret_cast<char*>(lname));
+		std::string eStr(reinterpret_cast<char*>(email));
+		int intID = static_cast<int>(customer_id);
+		int intPoints = static_cast<int>(points);
+
+		// Create and return customer's object representation
+		Customer customer(intID, fStr, lStr, eStr, intPoints);
+		return customer;
+	}
 
 public:
 	CustomerManager(DBConn& dbConn, std::string tableName) : dbConn(dbConn), tableName(tableName) {}
@@ -65,14 +82,12 @@ public:
 		}
 	}
 
-	// Returns a vector of all customers in our database
-	std::vector<Customer> getAllCustomers() {
+	std::vector<Customer> fetchCustomers(const std::string query) {
 		std::vector<Customer> customers;
 
 		// Execute query to fetch customers
-		std::string query = "SELECT * FROM " + tableName + ";";
 		if (!dbConn.executeSQL(query)) {
-			throw std::runtime_error("Failed to fetch customers from the database!");
+			throw std::runtime_error("Failed to query customers!");
 		}
 
 		// Create buffers/variables
@@ -99,35 +114,31 @@ public:
 			}
 			else if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
 				dbConn.closeCursor(); // Close the cursor before the error was thrown.
-				throw std::runtime_error("Failed to fetch all customers from the database!");
+				throw std::runtime_error("Failed to fetch a given customer!");
 			}
 
-			// Null terminate the strings
-			fname[MAX_FNAME_LENGTH] = '\0';
-			lname[MAX_LNAME_LENGTH] = '\0';
-			email[MAX_EMAIL_LENGTH] = '\0';
-
-			// Convert SQLCHAR to strings and SQLINTEGER to int
-			std::string fStr(reinterpret_cast<char*>(fname));
-			std::string lStr(reinterpret_cast<char*>(lname));
-			std::string eStr(reinterpret_cast<char*>(email));
-			int intID = static_cast<int>(customer_id);
-			int intPoints = static_cast<int>(points);
-
-			// Construct a Customer object and add it to the vector
-			customers.emplace_back(Customer(intID, fStr, lStr, eStr, intPoints));
+			// Create customer object from row data, and push it into the vector
+			Customer customer = createCustomerFromRow(customer_id, fname, lname, email, points);
+			customers.push_back(customer);
 		}
 
 		/*
 		- Close the cursor. When fetching from a result set (a table), the database driver uses a cursor to keep
-		track of your position in teh result set (what row we're currently looking at). Closing the cursor releases 
-		its resources and frees up memory. It's important to close the cursor when you're done fetching 
+		track of your position in teh result set (what row we're currently looking at). Closing the cursor releases
+		its resources and frees up memory. It's important to close the cursor when you're done fetching
 		rows to ensure proper resource management, avoid memory leaks, and unexpected errors with SQL
 		*/
 		dbConn.closeCursor();
-		
 
 		// Return the vector of customers
+		return customers;
+	}
+
+	// Returns a vector of all customers in our database
+	std::vector<Customer> getAllCustomers() {
+		// Execute query to fetch customers
+		std::string query = "SELECT * FROM " + tableName + ";";
+		std::vector<Customer> customers = fetchCustomers(query);
 		return customers;
 	}
 
@@ -135,64 +146,15 @@ public:
 	Customer getCustomerByID(int customer_id) {
 		std::string query = "SELECT * FROM " + tableName + " WHERE customer_id=" + std::to_string(customer_id) + ";";
 
+		std::vector<Customer> customers = fetchCustomers(query);
+		if (customers.empty()) {
+			throw std::runtime_error("Customer with ID '" + std::to_string(customer_id) + "' wasn't found!");
+		}
+
+		// Expecting a vector with only one customer
+		Customer customer = customers[0];
+		
 		// Execute SQL Statement
-		if (!dbConn.executeSQL(query)) {
-			throw std::runtime_error("Failed to execute query for customer with ID '" + std::to_string(customer_id) + "'!");
-		}
-
-		// Variables to hold column (index 255 is for null terminator character)
-		SQLCHAR fname[MAX_FNAME_LENGTH + 1] = {};
-		SQLCHAR lname[MAX_LNAME_LENGTH + 1] = {};
-		SQLCHAR email[MAX_EMAIL_LENGTH + 1] = {};
-		SQLINTEGER points = 0;
-
-		// Bind columns
-		SQLRETURN retcode = dbConn.bindColumn(2, SQL_C_CHAR, fname, sizeof(fname));
-		retcode = dbConn.bindColumn(3, SQL_C_CHAR, lname, sizeof(lname));
-		retcode = dbConn.bindColumn(4, SQL_C_CHAR, email, sizeof(email));
-		retcode = dbConn.bindColumn(5, SQL_INTEGER, &points, sizeof(points));
-
-		// Fetch the row
-		retcode = dbConn.fetchRow();
-		if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
-			dbConn.closeCursor(); // Close the cursor
-			if (retcode == SQL_NO_DATA) {
-				throw std::runtime_error("Customer with ID '" + std::to_string(customer_id) + "' wasn't found!");
-			}
-			else {
-				throw std::runtime_error("Failed to fetch customer with ID '" + std::to_string(customer_id) + "'!");
-			}
-		}
-	
-		// Close the cursor
-		dbConn.closeCursor();
-		
-
-		/*
-		- Null terminate the strings. reinterpret_cast needs that null-terminator 
-		because in C/C++ strings end with a null character '\0'. If they don't, then 
-		our conversion process could read beyond what was intended, resulting in unexpected behavior.
-		
-		- Add null characters.
-		*/
-		fname[sizeof(fname) - 1] = '\0';
-		lname[sizeof(lname) - 1] = '\0';
-		email[sizeof(email) - 1] = '\0';
-
-		// Convert SQLCHAR to strings and SQLINTEGER to int
-		std::string fStr(reinterpret_cast<char*>(fname));
-		std::string lStr(reinterpret_cast<char*>(lname));
-		std::string eStr(reinterpret_cast<char*>(email));
-		int intPoints = static_cast<int>(points);
-
-		// Construct and return a Customer object
-		Customer customer(
-			customer_id,
-			fStr,
-			lStr,
-			eStr,
-			intPoints
-		);
 		return customer;
 	}
 

@@ -14,6 +14,25 @@ private:
 	static const int MAX_P_NAME_LENGTH = 50;
 	static const int MAX_DESCRIPTION_LENGTH = 2000;
 
+
+	// Helper function that takes SQL row data and creates product object from it.
+	Product createProductFromRow(SQLINTEGER product_id, SQLINTEGER supplier_id, SQLCHAR* p_name, SQLCHAR* description, SQLFLOAT price, SQLINTEGER qty) {
+		// Null terminate the string values
+		p_name[MAX_P_NAME_LENGTH] = '\0';
+		description[MAX_DESCRIPTION_LENGTH] = '\0';
+
+		// Convert SQL data-types to regular data-types
+		int intProductID = static_cast<int>(product_id);
+		int intSupplierID = static_cast<int>(supplier_id);
+		std::string p_name_str(reinterpret_cast<char*>(p_name));
+		std::string descriptionStr(reinterpret_cast<char*>(description));
+		float floatPrice = static_cast<float>(price);
+		int intQty = static_cast<int>(qty);
+
+		return Product(intProductID, intSupplierID, p_name_str, descriptionStr, floatPrice, intQty);
+	}
+	
+
 public:
 	ProductManager(
 		DBConn& dbConn,
@@ -67,14 +86,13 @@ public:
 		}
 	}
 
-	// Returns a vector of Products
-	std::vector<Product> getAllProducts() {
+	// Given a query string, fetch a vector of products
+	std::vector<Product> fetchProducts(const std::string query) {
 		std::vector<Product> products;
 
-		// Execute query to get all products
-		std::string query = "SELECT * FROM " + tableName + ";";
+		// execute SQL Query
 		if (!dbConn.executeSQL(query)) {
-			throw std::runtime_error("Failed to fetch customers from the database!");
+			throw std::runtime_error("Failed to fetch products!");
 		}
 
 		// Create buffers/variables that will capture row data
@@ -93,7 +111,6 @@ public:
 		dbConn.bindColumn(5, SQL_C_DOUBLE, &price, sizeof(price));
 		dbConn.bindColumn(6, SQL_INTEGER, &qty, sizeof(qty));
 
-		// Loop through all rows we got
 		while (true) {
 			SQLRETURN retcode = dbConn.fetchRow();
 
@@ -104,80 +121,54 @@ public:
 			// Else if we failed to fetch data
 			else if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
 				dbConn.closeCursor(); // ensure we close cursor before throwing an error 
-				throw std::runtime_error("Failed to fetch all customers from the database!");
+				throw std::runtime_error("Failed to fetch a given customer!");
 			}
 
-			// Null terminate the strings; prepares them to be converted to std::string
-			p_name[MAX_P_NAME_LENGTH] = '\0';
-			description[MAX_DESCRIPTION_LENGTH] = '\0';
+			// Create product object using row data
+			Product product = createProductFromRow(product_id, supplier_id, p_name, description, price, qty);
 
-			// Convert SQL data-types to regular data-types
-			int intProductID = static_cast<int>(product_id);
-			int intSupplierID = static_cast<int>(supplier_id);
-			std::string p_name_str(reinterpret_cast<char*>(p_name));
-			std::string descriptionStr(reinterpret_cast<char*>(description));
-			float floatPrice = static_cast<float>(price);
-			int intQty = static_cast<int>(qty);
-
-			products.emplace_back(Product(intProductID, intSupplierID, p_name_str, descriptionStr, floatPrice, intQty));
+			// Put product object into array
+			products.push_back(product);
 		}
 
-		// Close database cursor since we fetched data AND returned vector of products.
+		// Close the cursor and return vector of products
 		dbConn.closeCursor();
+		return products;
+	}
+
+	// Returns a vector of all products in the table
+	std::vector<Product> getAllProducts() {
+		// Query to get all products
+		std::string query = "SELECT * FROM " + tableName + ";";
+
+		// Run function to return a vector
+		std::vector<Product> products = fetchProducts(query);
+		return products;
+	}
+
+	// Returns a vector of all available (qty > 0) products in the table
+	std::vector<Product> getAvailableProducts() {
+		// Query to get all products that have a quantity greater than 0
+		std::string query = "SELECT * FROM " + tableName + " WHERE qty > 0;";
+
+		// Run function to get vector of products, then return those products
+		std::vector<Product> products = fetchProducts(query);
 		return products;
 	}
 
 	// Returns a Product object when passed a product_id
 	Product getProductByID(int product_id) {
-
 		// Query to select all products from table
 		std::string query = "SELECT * FROM " + tableName + " WHERE product_id=" + std::to_string(product_id) + ";";
-		if (!dbConn.executeSQL(query)) {
-			throw std::runtime_error("Failed to query '" + tableName + "' table!");
+
+		// If vector is empty, then product_id doesn't reference a product, throw an error.
+		std::vector<Product> products = fetchProducts(query);
+		if (products.empty()) {
+			throw std::runtime_error("No product found with ID " + std::to_string(product_id));
 		}
 
-		// Create buffers/variables to 
-		SQLINTEGER supplier_id = 0;
-		SQLCHAR p_name[MAX_P_NAME_LENGTH + 1] = {};
-		SQLCHAR description[MAX_DESCRIPTION_LENGTH + 1] = {};
-		SQLFLOAT price = 0;
-		SQLINTEGER qty = 0;
-
-		// Bind columns, allowing them to get data
-		dbConn.bindColumn(2, SQL_INTEGER, &supplier_id, sizeof(supplier_id));
-		dbConn.bindColumn(3, SQL_C_CHAR, p_name, sizeof(p_name));
-		dbConn.bindColumn(4, SQL_C_CHAR, description, sizeof(description));
-		dbConn.bindColumn(5, SQL_C_DOUBLE, &price, sizeof(price));
-		dbConn.bindColumn(6, SQL_INTEGER, &qty, sizeof(qty));
-
-
-		// Fetch the row's data and put it in our buffers/variables
-		SQLRETURN retcode = dbConn.fetchRow();
-		if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
-			// Close cursor before throwing exception; prevents cursor from being in an invalid state for the next query
-			dbConn.closeCursor();
-			throw std::runtime_error("Product with ID '" + std::to_string(product_id) + "' wasn't found!");
-		}
-
-		// Close cursor here as well
-		dbConn.closeCursor();
-
-		// Null terminate the string values
-		p_name[MAX_P_NAME_LENGTH] = '\0';
-		description[MAX_DESCRIPTION_LENGTH] = '\0';
-
-		// Convert SQL data-types to regular data-types
-		int intProductID = static_cast<int>(product_id);
-		int intSupplierID = static_cast<int>(supplier_id);
-		std::string p_name_str(reinterpret_cast<char*>(p_name));
-		std::string descriptionStr(reinterpret_cast<char*>(description));
-		float floatPrice = static_cast<float>(price);
-		int intQty = static_cast<int>(qty);
-
-
-		// Create and return product object
-		Product product(intProductID, intSupplierID, p_name_str, descriptionStr, floatPrice, intQty);
-
+		// We're expecting a vector with one product, so index it out.
+		Product product = products[0];
 		return product;
 	}
 

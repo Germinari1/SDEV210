@@ -22,14 +22,15 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CartItem.h" />
+    <ClInclude Include="CartItemManager.h" />
     <ClInclude Include="Customer.h" />
     <ClInclude Include="CustomerManager.h" />
     <ClInclude Include="DBConn.h" />
-    <ClInclude Include="getValidNumericInput.h" />
+    <ClInclude Include="utils.h" />
     <ClInclude Include="Product.h" />
     <ClInclude Include="ProductManager.h" />
     <ClInclude Include="RetailApp.h" />
-    <ClInclude Include="ShoppingCart.h" />
     <ClInclude Include="SQLServerConn.h" />
     <ClInclude Include="Supplier.h" />
     <ClInclude Include="SupplierManager.h" />

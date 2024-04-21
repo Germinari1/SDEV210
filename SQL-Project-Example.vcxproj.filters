@@ -41,7 +41,7 @@
     <ClInclude Include="RetailApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="getValidNumericInput.h">
+    <ClInclude Include="utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Product.h">
@@ -56,7 +56,10 @@
     <ClInclude Include="SupplierNameManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ShoppingCart.h">
+    <ClInclude Include="CartItemManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CartItem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

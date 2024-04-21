@@ -11,6 +11,9 @@ private:
 	std::string email;
 	int points;
 public:
+
+	Customer() : customer_id(0), fname(""), lname(""), email(""), points(0) {}
+
 	Customer(int customer_id, std::string fname, std::string lname, std::string email, int points) 
 		: customer_id(customer_id), fname(fname), lname(lname), email(email), points(points) {}
 	
@@ -49,6 +52,10 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Customer& customer) {
 		os << "<Customer ID(" << customer.customer_id << "), fname(" << customer.fname << "), lname(" << customer.lname << "), email(" << customer.email << "), points(" << customer.points << ")/>";
 		return os;
+	}
+
+	bool operator!() const {
+		return customer_id == 0;
 	}
 };
 

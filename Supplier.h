@@ -11,6 +11,10 @@ private:
 	std::string email;
 	std::string address;
 public:
+
+	Supplier() : supplier_id(0), s_name(""), description(""), email(""), address("") {}
+
+
 	Supplier(
 		int supplier_id,
 		std::string s_name,
@@ -23,7 +27,7 @@ public:
 		email(email),
 		address(address) {}
 
-	const int getID() {
+	const int getSupplierID() {
 		return supplier_id;
 	}
 
@@ -47,6 +51,11 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Supplier& supplier) {
 		os << "<Supplier ID(" << supplier.supplier_id << "), name(" << supplier.s_name << "), email(" << supplier.email << "), address(" << supplier.address << ")/>";
 		return os;
+	}
+
+	// !supplier is true, when supplier_id = 0
+	bool operator!() const {
+		return supplier_id == 0;
 	}
 
 };
