@@ -49,6 +49,10 @@ public:
 		return points;
 	}
 
+	void setPoints(const int newPoints) {
+		points = newPoints;
+	}
+
 	friend std::ostream& operator<<(std::ostream& os, const Customer& customer) {
 		os << "<Customer ID(" << customer.customer_id << "), fname(" << customer.fname << "), lname(" << customer.lname << "), email(" << customer.email << "), points(" << customer.points << ")/>";
 		return os;

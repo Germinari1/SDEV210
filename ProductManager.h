@@ -3,8 +3,12 @@
 
 #include <string>
 #include <vector>
+#include <map>
+#include <tuple>
+
 #include "DBConn.h"
 #include "Product.h"
+#include "CartItem.h"
 
 class ProductManager {
 private:
@@ -171,6 +175,67 @@ public:
 		Product product = products[0];
 		return product;
 	}
+	
+
+	// Function should return a map with key product_id, and value quantity in stock for that product
+	std::map<int, int> getProductQuantities(std::vector<int> productIDs) {
+
+		// Construct a query that finds all products in products table where ID is in the vector
+		std::string query = "SELECT * FROM " + tableName + " WHERE product_id IN (";
+		for (size_t i = 0; i < productIDs.size(); i++) {
+			if (i > 0) {
+				query += ",";
+			}
+			query += std::to_string(productIDs[i]);
+		}
+		query += ")";
+
+		// Fetch those products as a vector; create map that we'll return
+		std::vector<Product> products = fetchProducts(query);
+		std::map<int, int> productQuantityMap;
+
+		// Iterate through vector, the key will be product_id and value will be its quantity in stock
+		for (size_t i = 0; i < products.size(); i++) {
+			int key = products[i].getProductID();
+			int value = products[i].getQuantity();
+			productQuantityMap[key] = value;
+		}
+
+		// Return our productQuantityMap
+		return productQuantityMap;
+	}
+
+	/*
+	+ Handles updating quantities of a product given a vector of tuples in 
+	form (product_id, qty). This is useful when handling updating the product quantities during the checkout process
+
+	NOTE: We assume that quantity validation has already been done here.
+	
+	*/
+	void batchUpdateProductQty(std::vector<std::tuple<int, int>> productQuantities) {
+		if (productQuantities.empty()) {
+			return; // No products to update
+		}
+
+		// Build the query string with multiple UPDATE statements
+		std::string query = "";
+		for (size_t i = 0; i < productQuantities.size(); ++i) {
+
+			int product_id = std::get<0>(productQuantities[i]);
+			int qty = std::get<1>(productQuantities[i]);
+
+			query += "UPDATE " + tableName + " SET qty=" + std::to_string(qty)
+				+ " WHERE product_id=" + std::to_string(product_id) + ";";
+		}
+		// Execute the query
+		if (!dbConn.executeSQL(query)) {
+			throw std::runtime_error("Failed to update product quantities!");
+		}
+
+		// Close cursor to prevent invalid cursor state
+		dbConn.closeCursor();
+	}
+
 
 	// Creates a new product in the database and returns the object representation of that product
 	Product createProduct(int supplier_id, std::string p_name, std::string description, float price, int qty) {

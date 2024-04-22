@@ -39,6 +39,15 @@ public:
 		return qty;
 	}
 
+	const std::string getProductName() {
+		return p_name;
+	}
+
+	const float getTotal() {
+		return price * qty;
+	}
+
+
 	friend std::ostream& operator<<(std::ostream& os, const CartItem& cartItem) {
 		os << "<Product: " << cartItem.p_name << ", Price: $" << cartItem.price << ", Num in Cart: " << cartItem.qty << "/>";
 		return os;

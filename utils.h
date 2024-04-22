@@ -163,7 +163,24 @@ void navigatePaginatedItems(const std::vector<T>& items, int pageSize, std::stri
     } while (page <= maxPage);
 }
 
-	
+char promptYesOrNo(std::string prompt) {
+    char choice;
+    do {
+        std::cout << prompt;
+        std::cin >> choice;
+
+        // Convert the choice to lowercase
+        choice = std::tolower(choice);
+
+        // Check if the choice is valid
+        if (choice != 'y' && choice != 'n') {
+            std::cout << "Invalid choice. Please enter 'y' or 'n'." << std::endl;
+        }
+    } while (choice != 'y' && choice != 'n');
+
+    return choice;
+}
+
 
 
 #endif

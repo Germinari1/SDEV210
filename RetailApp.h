@@ -3,18 +3,23 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <tuple>
+#include <map>
 
 // Include managers for managing different tables
 #include "CustomerManager.h"
 #include "SupplierManager.h"
 #include "ProductManager.h"
 #include "CartItemManager.h"
+#include "TransactionManager.h"
+#include "OrderItemManager.h"
 
 // Include object representations of rows in our database
 #include "Customer.h"
 #include "Supplier.h"
 #include "Product.h"
 #include "CartItem.h"
+#include "Transaction.h"
 
 // Include utility function for getting numeric input
 #include "utils.h"
@@ -26,25 +31,36 @@ private:
 	SupplierManager& supplierManager;
 	ProductManager& productManager;
 	CartItemManager& cartItemManager;
+	TransactionManager& transactionManager;
+	OrderItemManager& orderItemManager;
+
 
 	/*
-	Customer ID of the currently selected customer. We'll use this to 
+	- Customer ID of the currently selected customer. We'll use this to 
 	know which shopping cart we are managing.
 
+	- currentCustomer: Customer object that's displayed on the cart item menu. We'll
+	use a Customer object since, in the cart items screen, we'll need to be able 
+	to change the 'points' attribute so it's value is in-sync with the database. Right now this is only used to display the current customer in the cart items menu.
 	*/
 	int currentCustomerID = 0;
+	Customer currentCustomer;
 
 public:
 	RetailApp(
 		CustomerManager& customerManager, 
 		SupplierManager& supplierManager,
 		ProductManager& productManager,
-		CartItemManager& cartItemManager
+		CartItemManager& cartItemManager,
+		TransactionManager& transactionManager,
+		OrderItemManager& orderItemManager
 		) : 
 		customerManager(customerManager),
 		supplierManager(supplierManager), 
 		productManager(productManager),
-		cartItemManager(cartItemManager) {}
+		cartItemManager(cartItemManager),
+		transactionManager(transactionManager),
+		orderItemManager(orderItemManager) {}
 
 
 	// ********** Functions for customer related operations ********** 	
@@ -234,6 +250,9 @@ public:
 		
 		// Delete all cart items that reference the customer that's going to be deleted
 		cartItemManager.deleteByCustomerID(customer_id);
+
+		// Nullify 'customer_id' column in transactions table for all rows that reference the deleted customer_id
+		transactionManager.nullifyCustomerID(customer_id);
 
 		// Delete customer, and on success display that the customer was successfully deleted.
 		customerManager.deleteCustomer(customer_id);
@@ -472,6 +491,9 @@ public:
 		// Delete all cart items that reference a product, where the product has a supplier_id of the deleted supplier
 		cartItemManager.deleteBySupplierID(supplier_id);
 
+		// Nullify all order items that reference products that the supplier associated with
+		orderItemManager.nullifyProductIDBySupplierID(supplier_id);
+
 		// Delete all products associated with supplier
 		productManager.deleteBySupplierID(supplier_id);
 
@@ -706,6 +728,9 @@ public:
 		// Delete all cart items that reference the product being deleted
 		cartItemManager.deleteByProductID(product_id);
 
+		// Nullify all order items that reference the product_id
+		orderItemManager.nullifyProductID(product_id);
+
 		// Then delete the product
 		productManager.deleteProduct(product_id);
 		std::cout << "Deleted Product: " << product << std::endl;
@@ -753,13 +778,13 @@ public:
 			return;
 		}
 
-		Customer customer = customerManager.getCustomerByID(currentCustomerID);
+		currentCustomer = customerManager.getCustomerByID(currentCustomerID);
 
 		do {
 			try {
 				// Display main menu and prompt input
 				std::cout << "Cart Menu: " << std::endl;
-				std::cout << "Current Customer: " << customer << std::endl;
+				std::cout << "Current Customer: " << currentCustomer << std::endl;
 				std::cout << "1. Add product to cart" << std::endl;
 				std::cout << "2. Remove product from cart" << std::endl;
 				std::cout << "3. View all cart items" << std::endl;
@@ -790,6 +815,7 @@ public:
 					handleUpdateCartItem();
 					break;
 				case 5:
+					handleCheckout();
 					break;
 				case 6:
 					std::cout << "Exiting Cart Menu..." << std::endl;
@@ -906,6 +932,8 @@ public:
 
 	/*
 	- Helper function for handling prompting input for the qty of the product that the customer is going to put in the cart.
+	Here we decide a user at maximum can only have 10 of one product in their cart, but if the actual quantity in stock for 
+	that product is less than 10, the max is the remaining product
 	*/
 	int handleInputCartQty(Product product) {
 		int productQty = product.getQuantity();
@@ -929,6 +957,171 @@ public:
 
 		navigatePaginatedItems<CartItem>(cartItems, 5, "Customer Cart");
 	}
+
+	// Handles checking out the cart
+	void handleCheckout() {
+
+		// Fetch cart items for the customer
+		std::vector<CartItem> cartItems = cartItemManager.getCustomerCartItems(currentCustomerID);
+		if (cartItems.size() == 0) {
+			std::cout << "Cannot checkout since no items in Cart!" << std::endl;
+			return;
+		}
+
+		// Get vector of product ID values for products in the customer's cart.
+		std::vector<int> productIDs;
+		for (size_t i = 0; i < cartItems.size(); i++) {
+			int product_id = cartItems[i].getProductID();
+			productIDs.push_back(product_id);
+		}
+
+		/*
+		- productQuantityMap: Get a map of key product_id and value quantity in stock for that product
+		- newProductQuantities: Vector of tuples in form (product_id, qty), where qty is going to be the updated number in stock for the product (num in stock - num in cart)
+		*/
+		std::map<int, int> productQuantityMap = productManager.getProductQuantities(productIDs);
+		std::vector<std::tuple<int, int>> newProductQuantities;
+
+
+		// Total in your cart.
+		float total = 0;
+
+		// Check if each cart item's qty (num in cart) doesn't exceed the product's qty (num in stock)
+		for (size_t i = 0; i < cartItems.size(); i++) {
+			int product_id = cartItems[i].getProductID();
+			int numInCart = cartItems[i].getQty();
+			int numInStock = productQuantityMap[product_id];
+			if (numInCart > numInStock) {
+				std::cout << "Product '" << cartItems[i].getProductName() << "' has a quantity (" << numInCart
+					<< ") in your cart that exceeds the available stock (" << numInStock << ")" << std::endl;
+				return;
+			}
+
+			// Calculate the new product qty 
+			int updatedNumInStock = numInStock - numInCart;
+
+			// Add the total for that item
+			total += cartItems[i].getTotal();
+
+			// Push a tuple into newProductQuantities
+			newProductQuantities.push_back(std::make_tuple(product_id, updatedNumInStock));
+
+		}
+
+
+		Customer customer = customerManager.getCustomerByID(currentCustomerID);
+		int customerPoints = customer.getPoints();
+		int usedPoints = 0;
+
+
+		// Printing out their cart total
+		std::cout << "Your Cart Total: $" << total << "!" << std::endl;
+
+		/*
+		- If the customer has points we'll prompt them for the amount of points
+		they want to spend, 0 if none. Then print out their new cart total.
+		*/
+		if (customerPoints > 0) {
+			std::cout << "You have '" << customerPoints << "' points. One point is one dollar off your total!" << std::endl;
+			usedPoints = getValidRangeInput<int>("Enter number of points you're using (0, if none): ", 0, customerPoints);
+		}
+
+		/*
+		- If they spent points, calculate and display their new total!
+
+		NOTE: If they used enough points to make the total negative, then just make the total 0 dollars. However this does not account for the extra points that they lose due to them making things negative.
+		*/
+		if (usedPoints > 0) {
+			total -= usedPoints;
+			if (total < 0) {
+				total = 0;
+			}
+			std::cout << "New Cart Total: $" << total << "!" << std::endl;
+		}
+
+		/*
+		- Now calculate the earned point of points the customer gets on their 
+		final total. For example, if total is $250 and they spent 100 points, the 
+		final total is now $150. We'll then use this total to calculate the points.
+		As a result, they earn 15 points rather than 25 points, because in reality they only spent $150.
+		*/
+		int earnedPoints = calculatePointsFromCost(total);
+
+
+
+		// Have confirmation that the user wants to checkout their cart
+		char choice = promptYesOrNo("Do you want to confirm your checkout? (y/n): ");
+		if (choice == 'n') {
+			std::cout << "Cancelling checkout, returning to cart item menu..." << std::endl;
+			return;
+		}
+
+		/*
+		- Quantities are within limits, and loop calculated cart total. Shopping cart is ready for checkout. Now create new row in transaction table.
+		*/
+		Transaction transaction = transactionManager.createTransaction(currentCustomerID, total);
+		int transaction_id = transaction.getTransactionID();
+
+		/*
+		- Create the individual rows in the order items table that are associated with that transaction. 
+
+		- orderItems: Vector of tuples in form (transaction_id, product_id, qty) that is used to insert the order items in the database.
+
+		
+		*/
+		std::vector<std::tuple<int, int, int>> orderItems;
+		for (size_t i = 0; i < cartItems.size(); i++) {
+			int product_id = cartItems[i].getProductID();
+			int qty = cartItems[i].getQty();
+			orderItems.push_back(std::make_tuple(transaction_id, product_id, qty));
+		}
+		orderItemManager.batchCreateOrderItem(orderItems);
+
+		// Update the quantities in the products table to reflect new quantities after the customer checked out their cart; it seems batchUpdate could be the issue
+		productManager.batchUpdateProductQty(newProductQuantities);
+
+		// Now just clear the customer's cart; just delete all cart items associated with the customer who just checked out their cart.
+		cartItemManager.deleteByCustomerID(currentCustomerID);
+
+		
+		/*
+		- Calculate the total points the customer should have after checking out and update their points column
+		
+		NOTE: In the most extreme case, the customer spends all of their points, so customerPoints and usedPoints cancel out, making it so updatedCustomerPoints = earnedPoints. Then earnedPoints >= 0, so updatedCustomerPoints won't ever be negative, so you don't need a conditional check here.
+		*/
+		
+		int updatedCustomerPoints = customerPoints + earnedPoints - usedPoints;
+		customerManager.updatePoints(currentCustomerID, updatedCustomerPoints);
+
+
+		/*
+		- Update the points value on the currentCustomer object as well to be in sync with the database
+
+		NOTE: This allows us to correctly show off the customer's current point value, without having to fetch the customer from the database.
+		*/
+		currentCustomer.setPoints(updatedCustomerPoints);
+
+		
+		// Display that transaction went successfully
+		std::cout << "Successful checkout, transaction: " << transaction << std::endl;
+	}
+
+
+	/*
+	- Calculates the points earned by a customer from the total cost of their cart.
+	Let's say for every 10 dollars, the customer earns one point
+
+	1. Do total / 10, which will likely yield a decimal. SO 149.99 / 10 is 
+		14.99 points.
+	2. Now round down to nearest integer to get 14 points earned. Then return it.
+	*/
+	int calculatePointsFromCost(float total) {
+		int points = static_cast<int>(total / 10);
+		return points;
+	}
+
+
+
 };
 
 #endif

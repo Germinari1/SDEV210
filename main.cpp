@@ -8,6 +8,9 @@
 #include "SupplierNameManager.h"
 #include "ProductManager.h"
 #include "CartItemManager.h"
+#include "TransactionManager.h"
+#include "OrderItemManager.h"
+
 #include "RetailApp.h"
 
 int main() {
@@ -20,6 +23,9 @@ int main() {
         std::string supplierNameTableName = "Supplier_Names";
         std::string productTableName = "Products";
         std::string cartItemTableName = "Cart_Items";
+        std::string transactionTableName = "Transactions";
+        std::string orderItemTableName = "Order_Items";
+
 
         // Connect to SQL Server instance on 
         SQLServerConn connector;
@@ -69,10 +75,23 @@ int main() {
             cartItemManager.initTable();
         }
 
+        // Create manager for transactions table; needs for customer table to exist first
+        TransactionManager transactionManager(dbConn, transactionTableName, customerTableName);
+        if (!dbConn.tableExists(transactionTableName)) {
+            transactionManager.initTable();
+        }
+
+        // Create manager for order items table; needs the transaction and product table to exist first.
+        OrderItemManager orderItemManager(dbConn, orderItemTableName, transactionTableName, productTableName);
+        if (!dbConn.tableExists(orderItemTableName)) {
+            orderItemManager.initTable();
+        }
+
+
 
         
 
-        RetailApp myStore(customerManager, supplierManager, productManager, cartItemManager);
+        RetailApp myStore(customerManager, supplierManager, productManager, cartItemManager, transactionManager, orderItemManager);
         int choice;
 
         do {

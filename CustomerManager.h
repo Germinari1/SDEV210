@@ -230,6 +230,13 @@ public:
 		}
 	}
 
+	void updatePoints(int customer_id, int points) {
+		std::string query = "UPDATE " + tableName + " SET points='" + std::to_string(points) + "' WHERE customer_id=" + std::to_string(customer_id) + ";";
+		if (!dbConn.executeSQL(query)) {
+			throw std::runtime_error("Failed to update customer points with id '" + std::to_string(customer_id) + "'!");
+		}
+	}
+
 	// Deletes customer with customer_id from table
 	void deleteCustomer(int customer_id) {
 		std::string query = "DELETE FROM " + tableName + " WHERE customer_id=" + std::to_string(customer_id) + ";";

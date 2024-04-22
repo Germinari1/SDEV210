@@ -27,6 +27,10 @@
     <ClInclude Include="Customer.h" />
     <ClInclude Include="CustomerManager.h" />
     <ClInclude Include="DBConn.h" />
+    <ClInclude Include="OrderItem.h" />
+    <ClInclude Include="OrderItemManager.h" />
+    <ClInclude Include="Transaction.h" />
+    <ClInclude Include="TransactionManager.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="Product.h" />
     <ClInclude Include="ProductManager.h" />

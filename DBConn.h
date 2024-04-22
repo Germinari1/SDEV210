@@ -269,6 +269,21 @@ public:
         return query;
     }
 
+
+    // Returns the current date
+    std::string getCurrentDate() {
+        // Get the current time
+        time_t now = time(nullptr);
+        struct tm localTime;
+        localtime_s(&localTime, &now);
+
+        // Format the time as a string
+        char buffer[20];
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d", &localTime);
+
+        return std::string(buffer);
+    }
+
     // Destructor frees the statement handle.
     ~DBConn() {
         if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
