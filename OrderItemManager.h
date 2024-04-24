@@ -15,6 +15,16 @@ private:
 	std::string transactionTableName;
 	std::string productTableName;
 
+	OrderItem createOrderItemFromRow(SQLINTEGER order_item_id, SQLINTEGER transaction_id, SQLINTEGER product_id, SQLINTEGER qty) {
+		int intOrderItemID = static_cast<int>(order_item_id);
+		int intTransactionID = static_cast<int>(transaction_id);
+		int intProductID = static_cast<int>(product_id);
+		int intQty = static_cast<int>(qty);
+
+		OrderItem orderItem(intOrderItemID, intTransactionID, intProductID, intQty);
+		return orderItem;
+	}
+
 public:
 	OrderItemManager(
 		DBConn& dbConn,
@@ -40,6 +50,60 @@ public:
 		}
 	}
 
+	std::vector<OrderItem> fetchOrderItems(std::string query) {
+		std::vector<OrderItem> orderItems;
+
+		// Execute query to fetch order items
+		if (!dbConn.executeSQL(query)) {
+			throw std::runtime_error("Failed to query order items!");
+		}
+
+		// Create buffers to get the row data
+		SQLINTEGER order_item_id = 0;
+		SQLINTEGER transaction_id = 0;
+
+		/*
+		- product_id can be null, so let's ensure we handle binding the column properly in that case by using an indicator. By doing this we check if the column is null, if it 
+		is, then we don't feed product_id the data from that column because we don't want to feed an integer a null value. This would cause problems with how we feed data which 
+		is explained in our TransactionManager.
+		
+		
+		*/
+		SQLINTEGER product_id = 0;
+		SQLLEN product_id_indicator = 0;
+
+		SQLINTEGER qty = 0;
+
+		// Bind columns so that the buffers get the data when we do dbConn.fetchRow()
+		dbConn.bindColumn(1, SQL_INTEGER, &order_item_id, sizeof(order_item_id));
+		dbConn.bindColumn(2, SQL_INTEGER, &transaction_id, sizeof(transaction_id));
+		dbConn.bindColumn(3, SQL_INTEGER, &product_id, sizeof(product_id), &product_id_indicator);
+		dbConn.bindColumn(4, SQL_INTEGER, &qty, sizeof(qty));
+
+		while (true) {
+			SQLRETURN retcode = dbConn.fetchRow();
+
+			// If no more rows to be fetched, exit the loop
+			if (retcode == SQL_NO_DATA) {
+				break;
+			} else if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO && product_id != 0) {
+				dbConn.closeCursor(); // ensure we close cursor before throwing an error 
+				throw std::runtime_error("Failed to fetch a given customer!");
+			}
+
+			// Create product object using row data
+			OrderItem orderItem = createOrderItemFromRow(order_item_id, transaction_id, product_id, qty);
+
+			// Put product object into array
+			orderItems.push_back(orderItem);
+		}
+
+		dbConn.closeCursor();
+		return orderItems;
+	}
+
+
+
 	/*
 	- Create an order item for an existing transaction row.
 	*/
@@ -56,9 +120,16 @@ public:
 		return orderItem;
 	}
 
+
+	// Gets all order items for a specific transaction
+	std::vector<OrderItem> getOrderItems(int transaction_id) {
+		std::string query = "SELECT * FROM " + tableName + " WHERE transaction_id=" + std::to_string(transaction_id) + ";";
+		return fetchOrderItems(query);
+	}
+
+
 	/*
 	+ Handles creating/inserting multiple order item rows.
-	
 	*/
 	void batchCreateOrderItem(std::vector<std::tuple<int, int, int>> orderItems) {
 		if (orderItems.empty()) {

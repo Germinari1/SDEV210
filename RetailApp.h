@@ -1047,8 +1047,6 @@ public:
 		*/
 		int earnedPoints = calculatePointsFromCost(total);
 
-
-
 		// Have confirmation that the user wants to checkout their cart
 		char choice = promptYesOrNo("Do you want to confirm your checkout? (y/n): ");
 		if (choice == 'n') {
@@ -1064,10 +1062,7 @@ public:
 
 		/*
 		- Create the individual rows in the order items table that are associated with that transaction. 
-
 		- orderItems: Vector of tuples in form (transaction_id, product_id, qty) that is used to insert the order items in the database.
-
-		
 		*/
 		std::vector<std::tuple<int, int, int>> orderItems;
 		for (size_t i = 0; i < cartItems.size(); i++) {
@@ -1119,6 +1114,81 @@ public:
 		int points = static_cast<int>(total / 10);
 		return points;
 	}
+
+
+
+	// ********** Functions for Transaction table related operations ********** 
+
+	// Handles displaying and managing transaction menu
+	void handleTransactionMenu() {
+		int choice;
+		do {
+			try {
+				std::cout << "Transaction Menu: " << std::endl;
+				std::cout << "1. Display all transactions" << std::endl;
+				std::cout << "2. Get transaction by ID" << std::endl;
+				std::cout << "3. Exit Transaction Menu" << std::endl;
+				std::cout << "Please enter a number to continue: ";
+				std::cin >> choice;
+
+				if (std::cin.fail()) {
+					std::cout << "Invalid input. Please enter a number!" << std::endl;
+					std::cin.clear(); // Clear the error flag
+					std::cin.ignore(64, '\n'); // Clear the input buffer
+					continue; // Restart the loop
+				}
+
+				switch (choice) {
+				case 1:
+					displayAllTransactions();
+					break;
+				case 2:
+					handleGetTransactionByID();
+					break;
+				case 3:
+					std::cout << "Exiting Transaction Menu..." << std::endl;
+					break;
+				default:
+					std::cout << "Transaction Menu: Invalid choice. Please enter a number between 1 and 3." << std::endl;
+				}
+			}
+			catch (const std::exception& ex) {
+				std::cerr << "Transaction Menu Error: " << ex.what() << std::endl;
+			}
+		} while (choice != 3);
+	}
+
+	// Handles displaying a paginated menu for the transactions
+	void displayAllTransactions() {
+		std::vector<Transaction> transactions = transactionManager.getAllTransactions();
+		if (transactions.size() == 0) {
+			std::cout << "No transactions to display!" << std::endl;
+			return;
+		}
+
+		navigatePaginatedItems(transactions, 5, "Transaction Menu List");
+	}
+
+
+	// Handles displaying a transaction and its associated order items
+	void handleGetTransactionByID() {
+
+		int transaction_id = getValidNumericInput<int>("Enter ID of the transaction we're viewing: ");
+		Transaction transaction = transactionManager.getTransactionByID(transaction_id);
+
+		// Then find all order_items associated with the transaction
+		std::vector<OrderItem> orderItems = orderItemManager.getOrderItems(transaction.getTransactionID());
+
+		// Display transaction and its associated order items
+		std::cout << "Transaction Info: " << std::endl;
+		std::cout << transaction << std::endl;
+		for (size_t i = 0; i < orderItems.size(); i++) {
+			std::cout << orderItems[i] << std::endl;
+		}
+
+	}
+
+
 
 
 

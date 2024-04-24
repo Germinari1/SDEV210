@@ -73,20 +73,41 @@ public:
 	std::vector<Transaction> fetchTransactions(std::string query) {
 		std::vector<Transaction> transactions;
 
-		// Execute query to fetch customers
+		// Execute query to fetch transactions
 		if (!dbConn.executeSQL(query)) {
 			throw std::runtime_error("Failed to query transactions!");
 		}
 
 		// Create buffers to get the row data
 		SQLINTEGER transaction_id = 0;
+		
+		/*
+		+ Dealing with NULL Values:
+		For a transaction row, the customer_id column could be NULL in the database. In this case, we'll use an 'indicator'. An indicator is a variable that's used to check whether
+		a value that we're fetching for a column is NULL (SQL_NULL_DATA) or not. If so, then we let the program know that the column's value should not be used or fed into our 'customer_id'.
+		So if customer_id in the row is null, then we ignore the value and keep our '0' value.
+
+		If we didn't have the customer_id_indicator then it would cause issues. When there would be a NULL value for customer_id in a row, then we'd be feeding a null value to 
+		an SQLINTEGER. As a result, it would cause the following columns, total and order_date, to be 'nullified' as well when we're feeding them the row values. As a result 
+		when customer_id = NULL, the program would also incorrectly fetch the total and order_date values, setting them to a zero-like or null value as well.
+
+
+		+ In the while loop:
+		When doing dbConn.fetchRow(), when a column such as customer_id is NULL, then our retcode != SQL_SUCCESS, yeah it's indicated as a failure. So it's still able to fetch the row's data, but 
+		if a column is seen as NULL, it's indicated as a failure. Of course for us this isn't a failure, it's intentional, our customer_id column for our transactions can be null. So to prevent us 
+		from throwing an error and stopping fetchTransactions for this reason, we ensure that we only throw an error when retcode != SQL_SUCCESS AND the customer_id != 0. As a result, we only throw 
+		an error when it doesn't involve customer_id being 0. Because we know the customer_id from the row was null when customer_id is 0, because if wasn't null, then customer_id would have been assigned a positive integer that represents a valid ID value.
+
+		*/
 		SQLINTEGER customer_id = 0;
+		SQLLEN customer_id_indicator = 0;
+
 		SQLFLOAT total = 0;
 		DATE_STRUCT order_date = { 0 };
 
 		// Bind columns so that the buffers get the data when we do dbConn.fetchRow()
 		dbConn.bindColumn(1, SQL_INTEGER, &transaction_id, sizeof(transaction_id));
-		dbConn.bindColumn(2, SQL_INTEGER, &customer_id, sizeof(customer_id));
+		dbConn.bindColumn(2, SQL_INTEGER, &customer_id, sizeof(customer_id), &customer_id_indicator);
 		dbConn.bindColumn(3, SQL_C_DOUBLE, &total, sizeof(total));
 		dbConn.bindColumn(4, SQL_C_DATE, &order_date, sizeof(order_date));
 
@@ -96,18 +117,16 @@ public:
 			// If no more rows to be fetched, exit the loop
 			if (retcode == SQL_NO_DATA) {
 				break;
-			}
-			// Else if we failed to fetch data
-			else if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+			} else if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO && customer_id != 0) {
 				dbConn.closeCursor(); // ensure we close cursor before throwing an error 
-				throw std::runtime_error("Failed to fetch a given customer!");
+				throw std::runtime_error("Failed to fetch a given transaction!");
 			}
 
 			// Create product object using row data
-			Transaction product = createTransactionFromRow(transaction_id, customer_id, total, order_date);
+			Transaction transaction = createTransactionFromRow(transaction_id, customer_id, total, order_date);
 
 			// Put product object into array
-			transactions.push_back(product);
+			transactions.push_back(transaction);
 		}
 		
 		dbConn.closeCursor();
@@ -136,6 +155,24 @@ public:
 		Transaction transaction(transaction_id, customer_id, total, dbConn.getCurrentDate());
 
 		return transaction;
+	}
+
+
+	// Returns a vector of all transactions in the table
+	std::vector<Transaction> getAllTransactions() {
+		std::string query = "SELECT * FROM " + tableName + ";";
+		std::vector<Transaction> transactions = fetchTransactions(query);
+		return transactions;
+	}
+
+	Transaction getTransactionByID(int transaction_id) {
+		std::string query = "SELECT * FROM " + tableName + " WHERE transaction_id=" + std::to_string(transaction_id) + ";";
+		std::vector<Transaction> transactions = fetchTransactions(query);
+		if (transactions.size() == 0) {
+			throw std::runtime_error("Transaction with ID(" + std::to_string(transaction_id) + ") wasn't found!");
+		}
+
+		return transactions[0];
 	}
 
 	// Nullifies customer_id column for all transactions; good when customer is deleted

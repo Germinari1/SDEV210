@@ -101,7 +101,8 @@ int main() {
             std::cout << "2. Suppliers" << std::endl;
             std::cout << "3. Products" << std::endl;
             std::cout << "4. Cart Items" << std::endl;
-            std::cout << "5. Quit" << std::endl;
+            std::cout << "5. Transactions" << std::endl;
+            std::cout << "6. Quit" << std::endl;
             std::cout << "Please enter a number to continue: ";
             std::cin >> choice;
 
@@ -126,13 +127,16 @@ int main() {
                 myStore.handleCartMenu();
                 break;
             case 5:
+                myStore.handleTransactionMenu();
+                break;
+            case 6:
                 std::cout << "Exiting Program!" << std::endl;
                 break;
             default:
                 std::cout << "Invalid choice. Please enter a number between 1 and 5." << std::endl;
             }
 
-        } while (choice != 5);
+        } while (choice != 6);
         
 
         // Disconnect from SQL Server
