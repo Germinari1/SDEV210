@@ -6,17 +6,25 @@
 #include "CustomerManager.h"
 #include "SupplierManager.h"
 #include "SupplierNameManager.h"
+#include "ProductManager.h"
+#include "CartItemManager.h"
+#include "TransactionManager.h"
+#include "OrderItemManager.h"
 
 #include "RetailApp.h"
 
 int main() {
     try {
-
+        // Table names
         std::string connectionString = "DRIVER={SQL Server};SERVER=KN\\SQLEXPRESS;Trusted_Connection=yes;";
         std::string dbName = "sample_store";
         std::string customerTableName = "Customers";
         std::string supplierTableName = "Suppliers";
         std::string supplierNameTableName = "Supplier_Names";
+        std::string productTableName = "Products";
+        std::string cartItemTableName = "Cart_Items";
+        std::string transactionTableName = "Transactions";
+        std::string orderItemTableName = "Order_Items";
 
 
         // Connect to SQL Server instance on 
@@ -55,9 +63,35 @@ int main() {
             supplierNameManager.initTable();
         }
 
+        // Create manager for products table
+        ProductManager productManager(dbConn, productTableName, supplierTableName);
+        if (!dbConn.tableExists(productTableName)) {
+            productManager.initTable();
+        }
+
+        // Create manager for cart items table and initialize table if it doesn't already exist
+        CartItemManager cartItemManager(dbConn, cartItemTableName, customerTableName, productTableName);
+        if (!dbConn.tableExists(cartItemTableName)) {
+            cartItemManager.initTable();
+        }
+
+        // Create manager for transactions table; needs for customer table to exist first
+        TransactionManager transactionManager(dbConn, transactionTableName, customerTableName);
+        if (!dbConn.tableExists(transactionTableName)) {
+            transactionManager.initTable();
+        }
+
+        // Create manager for order items table; needs the transaction and product table to exist first.
+        OrderItemManager orderItemManager(dbConn, orderItemTableName, transactionTableName, productTableName);
+        if (!dbConn.tableExists(orderItemTableName)) {
+            orderItemManager.initTable();
+        }
+
+
+
         
 
-        RetailApp myStore(customerManager, supplierManager, supplierNameManager);
+        RetailApp myStore(customerManager, supplierManager, productManager, cartItemManager, transactionManager, orderItemManager);
         int choice;
 
         do {
@@ -65,7 +99,10 @@ int main() {
             std::cout << "Main Menu: " << std::endl;
             std::cout << "1. Customers" << std::endl;
             std::cout << "2. Suppliers" << std::endl;
-            std::cout << "3. Quit" << std::endl;
+            std::cout << "3. Products" << std::endl;
+            std::cout << "4. Cart Items" << std::endl;
+            std::cout << "5. Transactions" << std::endl;
+            std::cout << "6. Quit" << std::endl;
             std::cout << "Please enter a number to continue: ";
             std::cin >> choice;
 
@@ -84,13 +121,22 @@ int main() {
                 myStore.handleSupplierMenu();
                 break;
             case 3:
+                myStore.handleProductMenu();
+                break;
+            case 4:
+                myStore.handleCartMenu();
+                break;
+            case 5:
+                myStore.handleTransactionMenu();
+                break;
+            case 6:
                 std::cout << "Exiting Program!" << std::endl;
                 break;
             default:
-                std::cout << "Invalid choice. Please enter a number between 1 and 3." << std::endl;
+                std::cout << "Invalid choice. Please enter a number between 1 and 5." << std::endl;
             }
 
-        } while (choice != 3);
+        } while (choice != 6);
         
 
         // Disconnect from SQL Server

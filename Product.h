@@ -12,6 +12,11 @@ private:
 	float price;
 	int qty;
 public:
+
+	// Default constructor
+	Product() : product_id(0), supplier_id(0), p_name(""), description(""), price(0.0f), qty(0) {}
+
+
 	Product(
 		int product_id,
 		int supplier_id,
@@ -51,8 +56,15 @@ public:
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const Product& product) {
-		os << "<Product ID(" << product.product_id << "), Supplier ID(" << product.supplier_id << "), name(" << product.p_name << "), Price(" << product.price << "), Qty(" << product.qty << ")/>";
+		os << "<Product ID(" << product.product_id << "), supplier_id(" << product.supplier_id << "), name(" << product.p_name << "), Price(" << product.price << "), Qty in stock(" << product.qty << ")/>";
 		return os;
+	}
+
+
+	// product_id is always a positive integer for references that actually work 
+	// so if it's zero, return true for if (!product)
+	bool operator!() const {
+		return product_id == 0;
 	}
 
 };

@@ -33,6 +33,27 @@ private:
 	static const int MAX_EMAIL_LENGTH = 50;
 	static const int MAX_ADDRESS_LENGTH = 50;
 
+
+	// Creates supplier object from data obtained from SQL row
+	Supplier createSupplierFromRow(SQLINTEGER supplier_id, SQLCHAR* description, SQLCHAR* email, SQLCHAR* address, SQLCHAR* s_name) {
+		// Null terminate the strings; needed since we convert the datatypes
+		description[MAX_DESCRIPTION_LENGTH] = '\0';
+		email[MAX_EMAIL_LENGTH] = '\0';
+		address[MAX_ADDRESS_LENGTH] = '\0';
+		s_name[MAX_S_NAME_LENGTH] = '\0';
+
+		// Convert datatypes 
+		int intID = static_cast<int>(supplier_id);
+		std::string descriptionStr(reinterpret_cast<char*>(description));
+		std::string emailStr(reinterpret_cast<char*>(email));
+		std::string addressStr(reinterpret_cast<char*>(address));
+		std::string s_name_str(reinterpret_cast<char*>(s_name));
+
+		// Create and return supplier object
+		Supplier supplier(intID, s_name_str, descriptionStr, emailStr, addressStr);
+		return supplier;
+	}
+
 public:
 	SupplierManager(
 		DBConn& dbConn, 
@@ -55,6 +76,13 @@ public:
 			throw std::runtime_error("Failed to initialize '" + tableName + "' table!");
 		}
 	}
+
+	// Ensure that the supplier_id links to an actual supplier if not, then we throw an error 
+	bool isValidSupplierID(int supplier_id) {
+		bool isValidID = dbConn.isValidRow(tableName, "supplier_id", supplier_id);
+		return isValidID;
+	}
+
 
 	// Checks that supplier name is within length constraints
 	void validateSupplierName(std::string& s_name) {
@@ -84,28 +112,11 @@ public:
 		}
 	}
 
-	/*
-	+ Gets all suppliers in the database.
-	
-	NOTE: Merges Supplier and Supplier_Name tables as well.
-	*/
-	std::vector<Supplier> getAllSuppliers() {
-		// Create vector of Supplier objects; also get the name of the 'Supplier Nmae' table which will help us build our JOIN query.
-		std::vector<Supplier> suppliers; 
-		const std::string supplierNameTable = supplierNameManager.getTableName();
 
-		// Construct SQL Query that joins 'suppliers' and 'supplier names' table.
-		std::string query =
-			"SELECT " +
-			tableName + ".supplier_id, " +   // column 1
-			tableName + ".description, " +   // column 2
-			tableName + ".email, " +         // column 3
-			tableName + ".address, " +       // column 4
-			supplierNameTable + ".s_name " + // column 5
-			"FROM " + tableName + " " +
-			"JOIN " + supplierNameTable + " " + 
-			"ON " + tableName + ".supplier_id = " + supplierNameTable + ".supplier_id;";
-
+	std::vector<Supplier> fetchSuppliers(const std::string query) {
+		// Create vector of Supplier objects
+		std::vector<Supplier> suppliers;
+		
 		// Execute sql query; and check if it was successful
 		if (!dbConn.executeSQL(query)) {
 			throw std::runtime_error("Failed to query supplier and supplierName tables!");
@@ -138,26 +149,42 @@ public:
 				throw std::runtime_error("Failed to fetch all suppliers from the database!");
 			}
 
-			// Null terminate the strings
-			description[MAX_DESCRIPTION_LENGTH] = '\0';
-			email[MAX_EMAIL_LENGTH] = '\0';
-			address[MAX_ADDRESS_LENGTH] = '\0';
-			s_name[MAX_S_NAME_LENGTH] = '\0';
-
-			// Convert datatypes 
-			int intID = static_cast<int>(supplier_id);
-			std::string descriptionStr(reinterpret_cast<char*>(description));
-			std::string emailStr(reinterpret_cast<char*>(email));
-			std::string addressStr(reinterpret_cast<char*>(address));
-			std::string s_name_str(reinterpret_cast<char*>(s_name));
-
 			// Create Supplier instance and put it into our suppliers vector
-			suppliers.emplace_back(Supplier(intID, s_name_str, descriptionStr, emailStr, addressStr));
+			Supplier supplier = createSupplierFromRow(supplier_id, description, email, address, s_name);
+			suppliers.push_back(supplier);
 		}
 
 		// Close cursor
 		dbConn.closeCursor();
+
+		// Return the 'suppliers' vector
+		return suppliers;
+	}
+
+
+	/*
+	+ Gets all suppliers in the database.
+	
+	NOTE: Merges Supplier and Supplier_Name tables as well.
+	*/
+	std::vector<Supplier> getAllSuppliers() {
 		
+		const std::string supplierNameTable = supplierNameManager.getTableName();
+
+		// Construct SQL Query that joins 'suppliers' and 'supplier names' table.
+		std::string query =
+			"SELECT " +
+			tableName + ".supplier_id, " +   // column 1
+			tableName + ".description, " +   // column 2
+			tableName + ".email, " +         // column 3
+			tableName + ".address, " +       // column 4
+			supplierNameTable + ".s_name " + // column 5
+			"FROM " + tableName + " " +
+			"JOIN " + supplierNameTable + " " + 
+			"ON " + tableName + ".supplier_id = " + supplierNameTable + ".supplier_id;";
+
+		// Create vector of Supplier objects; also get the name of the 'Supplier Nmae' table which will help us build our JOIN query.
+		std::vector<Supplier> suppliers = fetchSuppliers(query);
 
 		// Return the 'suppliers' vector
 		return suppliers;
@@ -167,70 +194,27 @@ public:
 	Supplier getSupplierByID(int supplier_id) {
 		const std::string supplierNameTable = supplierNameManager.getTableName();
 		
-		/*
-		- Create query to both the Supplier and SupplierName tables in our query based on supplier_id.
-		This allows us to get the supplier's info and their unique name in one query. Get the description,
-		email, address, and supplier's name.
-		*/
+		// Construct query to find supplier with supplier_id
 		std::string query =
-			"SELECT " + 
-			tableName + ".description, " +
-			tableName + ".email, " +
-			tableName + ".address, " +
-			supplierNameTable + ".s_name " +
+			"SELECT " +
+			tableName + ".supplier_id, " +   // column 1
+			tableName + ".description, " +   // column 2
+			tableName + ".email, " +         // column 3
+			tableName + ".address, " +       // column 4
+			supplierNameTable + ".s_name " + // column 5
 			"FROM " + tableName + " " +
 			"JOIN " + supplierNameTable + " " +
-			"ON " + tableName + ".supplier_id = " + supplierNameTable + ".supplier_id " +
+			"ON " + tableName + ".supplier_id = " + supplierNameTable + ".supplier_id " + 
 			"WHERE " + tableName + ".supplier_id = " + std::to_string(supplier_id) + ";";
 
-		// Prepare to throw error if sql query failed
-		if (!dbConn.executeSQL(query)) {
-			throw std::runtime_error("Failed to query supplier and supplierName tables!");
-		}
-
-		// Create buffers to receive the data from the database
-		SQLCHAR description[MAX_DESCRIPTION_LENGTH + 1] = {};
-		SQLCHAR email[MAX_EMAIL_LENGTH + 1] = {};
-		SQLCHAR address[MAX_ADDRESS_LENGTH + 1] = {};
-		SQLCHAR s_name[MAX_S_NAME_LENGTH + 1] = {};
-
-		// Prepare our buffers to receive the data
-		dbConn.bindColumn(1, SQL_C_CHAR, description, sizeof(description));
-		dbConn.bindColumn(2, SQL_C_CHAR, email, sizeof(email));
-		dbConn.bindColumn(3, SQL_C_CHAR, address, sizeof(address));
-		dbConn.bindColumn(4, SQL_C_CHAR, s_name, sizeof(s_name));
-
-		// Fetch the data for the row we just queried
-		SQLRETURN retcode = dbConn.fetchRow();
-		if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
-			dbConn.closeCursor(); // close the cursor before throwing exception
+		// Check to see if vector is empty, which means supplier_id didn't reference a supplier in the table.
+		std::vector<Supplier> suppliers = fetchSuppliers(query);
+		if (suppliers.empty()) {
 			throw std::runtime_error("Supplier with ID '" + std::to_string(supplier_id) + "' wasn't found!");
 		}
 
-		// Close the cursor
-		dbConn.closeCursor();
-		
-
-		// Add null terminating character to the end of the buffers, so they can be turned into strings
-		description[sizeof(description) - 1] = '\0';
-		email[sizeof(email) - 1] = '\0';
-		address[sizeof(address) - 1] = '\0';
-		s_name[sizeof(s_name) - 1] = '\0';
-
-		// Convert SQLCHAR to strings and SQLINTEGER to int
-		std::string descriptionStr(reinterpret_cast<char*>(description));
-		std::string emailStr(reinterpret_cast<char*>(email));
-		std::string addressStr(reinterpret_cast<char*>(address));
-		std::string s_name_str(reinterpret_cast<char*>(s_name));
-
-		// Construct and return a Supplier object
-		Supplier supplier(
-			supplier_id,
-			s_name_str,
-			descriptionStr,
-			emailStr,
-			addressStr
-		);
+		// suppliers vector isn't empty; expect it to contain only one supplier, so index and return it.
+		Supplier supplier = suppliers[0];
 		return supplier;
 	}
 
@@ -243,7 +227,6 @@ public:
 		So to use it as part of your literal string, you'll need to escape. To do this we replace that one single quote 
 		with two single quotes. As a result the SQL database will see it as one single quote.
 	*/
-	
 	Supplier createSupplier(std::string& s_name, std::string& description, std::string& email, std::string& address) {
 		
 		// Ensure that the input meets syntax constraints
@@ -293,7 +276,8 @@ public:
 
 	// Handles updating a supplier's name
 	void updateName(int supplier_id, std::string& s_name) {
-		// Ensure supplier name is within syntax constraints
+
+		// Validate name length
 		validateSupplierName(s_name);
 
 		// Escape the supplier name
@@ -309,9 +293,8 @@ public:
 	// Handles updating a supplier's description
 	void updateDescription(int supplier_id, std::string& description) {
 
-		// Ensure description is within syntax constraints
+		// Validate description length
 		validateDescription(description);
-
 		// Escape the description; don't need to create 'escaped_description' since we aren't directly creating a supplier object to return
 		description = dbConn.escapeSQL(description);
 
@@ -324,7 +307,6 @@ public:
 
 	// Handles updating a supplier's email
 	void updateEmail(int supplier_id, std::string& email) {
-		// Validate email
 		validateEmail(email);
 
 		// Escape the email
@@ -339,7 +321,6 @@ public:
 
 	// Handles updating a supplier's address
 	void updateAddress(int supplier_id, std::string& address) {
-		// Validate the address of the supplier
 		validateAddress(address);
 
 		// Escape the address

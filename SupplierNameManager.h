@@ -39,21 +39,15 @@ private:
 public:
 	SupplierNameManager(DBConn& dbConn, std::string& tableName, std::string& supplierTableName) : dbConn(dbConn), tableName(tableName), supplierTableName(supplierTableName) {}
 
+	// Method for getting the name of the table. This should be the 'supplier_names'
 	const std::string& getTableName() {
 		return tableName;
 	}
 
-	/*
-	- Initializes the supplier name manager.
-	
-	NOTE: I do [tableName] because my table name "Supplier Names" has a space. In these cases 
-	when table names have spaces or special characters, we surround them by square brakcets.
-	*/
-	
 	void initTable() {
 		std::string query = "CREATE TABLE " + tableName + " ( "
 			"supplier_id INT NOT NULL PRIMARY KEY, "
-			"s_name VARCHAR(" + std::to_string(MAX_S_NAME_LENGTH) + ") NOT NULL, "
+			"s_name VARCHAR(" + std::to_string(MAX_S_NAME_LENGTH) + ") NOT NULL UNIQUE, "
 			"FOREIGN KEY (supplier_id) REFERENCES " + supplierTableName + " (supplier_id)"
 			");";
 
